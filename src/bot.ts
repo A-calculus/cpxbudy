@@ -1,6 +1,7 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { MistralService } from './services/mistralService';
 import { ToolManager } from './tools/toolManager';
+import { startServer } from './server';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -247,5 +248,8 @@ bot.on('message', async (msg) => {
         await bot.sendMessage(chatId, 'Sorry, I encountered an error processing your request. Please try again.');
     }
 });
+
+// Start the server
+startServer();
 
 console.log('Bot is running...'); 
