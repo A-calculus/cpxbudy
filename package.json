@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "A Telegram bot powered by Mistral AI",
   "main": "dist/bot.js",
+
   "scripts": {
     "start": "node dist/bot.js",
     "dev": "ts-node --project tsconfig.json src/bot.ts",
-    "build": "rimraf dist && tsc",
+    "build": "rimraf dist && tsc && cp -r src/prompts dist/prompts",
     "clean": "rimraf dist sessions logs temp knowledge",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
