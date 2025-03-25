@@ -274,66 +274,33 @@ export class MistralService {
     private getToolFunctions() {
         return {
             'login': async (email: string) => {
-                console.log('\n=== Mistral Service: Login Tool ===');
-                console.log('Email:', email);
                 return await this.toolManager.executeTool('login', email);
             },
             'verifyOTP': async (email: string, otp: string, sid: string) => {
-                console.log('\n=== Mistral Service: OTP Tool ===');
-                console.log('Email:', email);
-                console.log('SID:', sid);
                 return await this.toolManager.executeTool('otp', { email, otp, sid });
             },
             'logout': async (email: string) => {
-                console.log('\n=== Mistral Service: Logout Tool ===');
-                console.log('Email:', email);
                 return await this.toolManager.executeTool('logout', email);
             },
             'balance': async (email: string, type: string = 'balance') => {
-                console.log('\n=== Mistral Service: Balance Tool ===');
-                console.log('Email:', email);
-                console.log('Type:', type);
                 return await this.toolManager.executeTool('balance', email, type);
             },
             'send': async (email: string, recipientId: string, amount: number, currency: string = 'USD') => {
-                console.log('\n=== Mistral Service: Send Tool ===');
-                console.log('Email:', email);
-                console.log('Recipient ID:', recipientId);
-                console.log('Amount:', amount);
-                console.log('Currency:', currency);
                 return await this.toolManager.executeTool('send', email, recipientId, amount, currency);
             },
             'withdraw': async (email: string, amount: number, currency: string = 'USD', method: string = 'bank') => {
-                console.log('\n=== Mistral Service: Withdraw Tool ===');
-                console.log('Email:', email);
-                console.log('Amount:', amount);
-                console.log('Currency:', currency);
-                console.log('Method:', method);
                 return await this.toolManager.executeTool('withdraw', email, amount, currency, method);
             },
             'profile': async (email: string) => {
-                console.log('\n=== Mistral Service: Profile Tool ===');
-                console.log('Email:', email);
                 return await this.toolManager.executeTool('profile', email);
             },
             'kyc': async (email: string, nationality?: string, country?: string) => {
-                console.log('\n=== Mistral Service: KYC Tool ===');
-                console.log('Email:', email);
-                console.log('Nationality:', nationality);
-                console.log('Country:', country);
                 return await this.toolManager.handleCommand(email, `/kyc ${nationality || ''} ${country || ''}`.trim());
             },
             'wallet': async (email: string, action: string, walletId?: string) => {
-                console.log('\n=== Mistral Service: Wallet Tool ===');
-                console.log('Email:', email);
-                console.log('Action:', action);
-                console.log('Wallet ID:', walletId);
                 return await this.toolManager.executeTool('wallet', email, action, walletId);
             },
             'notify': async (email: string, chatId: string) => {
-                console.log('\n=== Mistral Service: Notification Tool ===');
-                console.log('Email:', email);
-                console.log('Chat ID:', chatId);
                 return await this.toolManager.executeTool('notify', email, chatId);
             }
         };
@@ -342,11 +309,8 @@ export class MistralService {
     
 
     // Processes user messages and generates AI responses using appropriate tools
-    async generateResponse(userMessage: string, email: string): Promise<string> {
+    async generateResponse(userMessage: string, email: string, chatId: number): Promise<string> {
         try {
-            console.log('\n=== Mistral Service: New Request ===');
-            console.log('User Message:', userMessage);
-            console.log('Email:', email);
 
             // Prepare messages for the AI
             const messages = [
@@ -453,7 +417,7 @@ export class MistralService {
                         messages: [
                             {
                                 role: "system",
-                                content: "You are CpXBuddy, Your CopperX AI Bot, a helpful assistant (The user communicates with you via telegram chat). Analyze the tool response and provide a clear, conversational response first stuctured layman human readable format of the tool response eg for profile infoe, give name, wallet address, role, status and more (hide sensitive data especially id's for privacy compliance. Don't let the user knows you did this). Next explain what the user should do next. Be friendly and concise. Dont't use the word tool or tool response or copperX or introduce yourself in your response."
+                                content: "You are CpXBuddy, Your CopperX AI Bot, a helpful assistant (The user communicates with you via telegram chat). Analyze the tool response and provide a clear, a string conversational response first of the tool response eg for profile infoe, give name, wallet address, role, status and more (remove fields that have sensitive data especially id's for privacy compliance. Don't let the user knows you did this). Next explain what the user should do next. Be friendly and concise. Dont't use the word tool or tool response or copperX or introduce yourself in your response."
                             },
                             {
                                 role: "user",
@@ -477,10 +441,6 @@ export class MistralService {
 
                     // Update the message history with the final response
                     this.messageHistory = messages;
-
-                    console.log('\n=== Mistral Service: Final Response ===');
-                    console.log('Final Response:', aiResponse);
-
                     return aiResponse;
                 }
             }
@@ -498,13 +458,8 @@ export class MistralService {
             // Update the message history
             this.messageHistory = messages;
 
-            console.log('\n=== Mistral Service: Final Response ===');
-            console.log('Final Response:', aiResponse);
-
             return aiResponse;
         } catch (error: any) {
-            console.error('\n=== Mistral Service Error ===');
-            console.error('Error:', error);
             return `I apologize, but I encountered an error while processing your request: ${error.message}`;
         }
     }

@@ -18,12 +18,14 @@ export class ToolManager {
     private tools: Map<string, any>;
     private prompts: Map<string, string>;
     private kycTool: KYCTool;
+    private bot: any;
 
     private constructor(bot: any) {
+        this.bot = bot;
         this.tools = new Map();
         this.prompts = new Map();
         this.kycTool = new KYCTool();
-        this.initializeTools(bot);
+        this.initializeTools();
         this.loadPrompts();
     }
 
@@ -37,7 +39,7 @@ export class ToolManager {
         return ToolManager.instance;
     }
 
-    private initializeTools(bot: any) {
+    private initializeTools() {
         this.tools.set('login', new LoginTool());
         this.tools.set('otp', new OTPTool());
         this.tools.set('logout', new LogoutTool());
@@ -47,7 +49,7 @@ export class ToolManager {
         this.tools.set('profile', new ProfileTool());
         this.tools.set('kyc', new KYCTool());
         this.tools.set('wallet', new WalletTool());
-        this.tools.set('notify', new PusherNotifyTool(bot));
+        this.tools.set('notify', new PusherNotifyTool(this.bot));
     }
 
     private loadPrompts() {

@@ -37,10 +37,6 @@ export class OTPTool {
 
     async execute(credentials: { email: string, otp: string, sid: string }): Promise<string> {
         try {
-            console.log('\n=== OTP Tool Execution ===');
-            console.log('Email:', credentials.email);
-            console.log('SID:', credentials.sid);
-            console.log('OTP Length:', credentials.otp.length);
 
             const response = await this.client.getClient().post<LoginResponse>(
                 '/api/auth/email-otp/authenticate',
@@ -56,15 +52,9 @@ export class OTPTool {
                 }
             );
 
-            console.log('\n=== OTP Response ===');
-            console.log('Response:', JSON.stringify(response.data, null, 2));
-
             const { user, accessToken, expireAt } = response.data;
             const now = new Date().toISOString();
 
-            console.log('\n=== Storing Session ===');
-            console.log('Created At:', now);
-            console.log('Expires At:', expireAt);
 
             // Create a new session with all the necessary data
             this.sessionManager.createSession(user.email, {
@@ -86,14 +76,8 @@ Session Expires: ${new Date(expireAt).toLocaleString()}
 
 Welcome back to CopperX! You can now access all platform features.`;
 
-            console.log('\n=== OTP Tool Result ===');
-            console.log(result);
             return result;
         } catch (error: any) {
-            console.error('\n=== OTP Tool Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
             
             const errorMessage = error.response?.data?.message || error.message || 'OTP verification failed';
             const errorDetails = error.response?.data?.details || '';

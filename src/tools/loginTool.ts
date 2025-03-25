@@ -14,8 +14,6 @@ export class LoginTool {
 
     async execute(email: string): Promise<string> {
         try {
-            console.log('\n=== Login Tool Execution ===');
-            console.log('Email:', email);
 
             const response = await this.client.getClient().post<LoginInitiateResponse>(
                 '/api/auth/email-otp/request',
@@ -27,8 +25,6 @@ export class LoginTool {
                 }
             );
 
-            console.log('\n=== Login Response ===');
-            console.log('Response:', JSON.stringify(response.data, null, 2));
 
             const result = `Login initiated successfully!
 Email: ${response.data.email}
@@ -36,14 +32,8 @@ Session ID (SID): ${response.data.sid}
 
 Please check your email for the OTP code to complete the login process.`;
 
-            console.log('\n=== Login Tool Result ===');
-            console.log(result);
             return result;
         } catch (error: any) {
-            console.error('\n=== Login Tool Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
             
             const errorMessage = error.response?.data?.message || error.message || 'Login initiation failed';
             const errorDetails = error.response?.data?.details || '';

@@ -17,7 +17,7 @@ export class SessionManager {
     private emailToSessionMap: Map<string, string>; // Maps email to session filename
 
     private constructor() {
-        this.sessionsDir = path.join(__dirname, '../sessions');
+        this.sessionsDir = path.join(__dirname, '..', '..', 'sessions');
         this.emailToSessionMap = new Map();
         this.initializeSessionsDirectory();
         this.loadExistingSessions();
@@ -70,22 +70,18 @@ export class SessionManager {
         // Update the email-to-session mapping
         this.emailToSessionMap.set(email, sessionFile);
 
-        console.log('\n=== Session Created ===');
-
         return sessionId;
     }
 
     public getSession(email: string): UserSession | null {
         const sessionFile = this.emailToSessionMap.get(email);
         if (!sessionFile) {
-            console.log('\n=== No Session Found ===');
             return null;
         }
 
         try {
             const sessionPath = path.join(this.sessionsDir, sessionFile);
             if (!fs.existsSync(sessionPath)) {
-                console.log('\n=== Session File Not Found ===');
                 this.emailToSessionMap.delete(email);
                 return null;
             }
@@ -93,9 +89,7 @@ export class SessionManager {
             const sessionData = JSON.parse(fs.readFileSync(sessionPath, 'utf-8')) as UserSession;
             sessionData.lastAccessed = new Date().toISOString();
             fs.writeFileSync(sessionPath, JSON.stringify(sessionData, null, 2));
-
-            console.log('\n=== Session Retrieved ===');
-
+            
             return sessionData;
         } catch (error) {
             console.error(`Error reading session file ${sessionFile}:`, error);

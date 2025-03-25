@@ -39,7 +39,6 @@ export class ProfileTool {
 
     async execute(email: string): Promise<string> {
         try {
-            console.log('\n=== Profile Tool Execution ===');
             
             const session = this.sessionManager.getSession(email);
             if (!session) {
@@ -47,16 +46,12 @@ export class ProfileTool {
             }
 
             // Fetch user profile
-            console.log('\n=== Fetching User Profile ===');
             const profileResponse = await this.client.getClient(email).get<UserProfile>('/api/auth/me');
             const profile = profileResponse.data;
-            console.log(profile);
 
             // Fetch user accounts
-            console.log('\n=== Fetching User Accounts ===');
             const accountsResponse = await this.client.getClient(email).get<Account[]>('/api/accounts');
             const accounts = accountsResponse.data;
-            console.log('Accounts:', JSON.stringify(accounts, null, 2));
             
 
             return `Profile Information:[
@@ -73,10 +68,6 @@ ${JSON.stringify(accounts, null, 2)}
 
 Note: Some sensitive information has been redacted for security purposes.`;
         } catch (error: any) {
-            console.error('\n=== Profile Tool Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
             
             const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch profile';
             const errorDetails = error.response?.data?.details || '';

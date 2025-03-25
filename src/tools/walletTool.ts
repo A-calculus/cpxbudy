@@ -145,33 +145,86 @@ interface DepositInfo {
     note?: string;
 }
 
+interface WalletListResponse {
+    wallets: Array<{
+        id: string;
+        type: string;
+        network: string;
+        address: string;
+        createdAt: string;
+        isDefault: boolean;
+    }>;
+}
+
+interface BalanceListResponse {
+    balances: Array<{
+        network: string;
+        isDefault: boolean;
+        tokens: Array<{
+            symbol: string;
+            balance: string;
+            address: string;
+            decimals: number;
+        }>;
+    }>;
+}
+
+interface TransactionListResponse {
+    transactions: Array<{
+        id: string;
+        createdAt: string;
+        type: string;
+        status: string;
+        amount: string;
+        currency: string;
+        subtotal: string;
+        fee: string;
+        feeCurrency: string;
+        feePercentage: string;
+        fromAccount: {
+            type: string;
+            network?: string;
+            address?: string;
+            bankName?: string;
+            maskedAccountNumber?: string;
+            displayName?: string;
+        };
+        toAccount: {
+            type: string;
+            network?: string;
+            address?: string;
+            bankName?: string;
+            maskedAccountNumber?: string;
+            displayName?: string;
+        };
+        mode: string;
+        purposeCode: string;
+        note?: string;
+        transactionHash?: string;
+        externalStatus?: string;
+    }>;
+    pagination: {
+        page: number;
+        totalPages: number;
+        hasMore: boolean;
+    };
+}
+
 export class WalletTool {
     private client: ReturnType<typeof AuthenticatedClient.getInstance>;
     private sessionManager: ReturnType<typeof SessionManager.getInstance>;
 
     constructor() {
-        console.log('\n=== Initializing Wallet Tool ===');
         this.client = AuthenticatedClient.getInstance();
         this.sessionManager = SessionManager.getInstance();
-        console.log('Wallet Tool initialized successfully');
     }
 
     async execute(email: string, action: string, ...args: any[]): Promise<string> {
         try {
-            console.log('\n=== Wallet Tool Execution ===');
-            console.log('Parameters:', { email, action, args });
-            
-            console.log('\n=== Checking Session ===');
             const session = this.sessionManager.getSession(email);
             if (!session) {
-                console.log('No session found for email:', email);
                 throw new Error('No active session found. Please log in first.');
             }
-            console.log('Session found:', {
-                email: session.user.email,
-                firstName: session.user.firstName,
-                lastName: session.user.lastName
-            });
 
             switch (action) {
                 case 'list':
@@ -188,11 +241,6 @@ export class WalletTool {
                     throw new Error(`Unsupported wallet action: ${action}`);
             }
         } catch (error: any) {
-            console.error('\n=== Wallet Tool Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
-            console.error('Stack Trace:', error.stack);
             
             const errorMessage = error.response?.data?.message || error.message || 'Failed to execute wallet operation';
             const errorDetails = error.response?.data?.details || '';
@@ -203,47 +251,13 @@ export class WalletTool {
     }
 
     private async listWallets(email: string): Promise<string> {
-        console.log('\n=== Listing Wallets ===');
         const response = await this.client.getClient(email).get<WalletResponse>('/api/wallets');
-        console.log('Wallets Response:', JSON.stringify(response.data, null, 2));
-
-        const wallets = response.data.data;
-        if (wallets.length === 0) {
-            return 'No wallets found. Please add a wallet to get started.';
-        }
-
-        const walletList = wallets.map(wallet => 
-            `${wallet.isDefault ? '⭐ ' : ''}${wallet.walletType.toUpperCase()} (${wallet.network})
-Address: ${wallet.walletAddress}
-Created: ${new Date(wallet.createdAt).toLocaleString()}
-Default: ${wallet.isDefault ? 'Yes' : 'No'}`
-        ).join('\n\n');
-
-        return `Your Wallets:\n\n${walletList}`;
+        return JSON.stringify(response.data);
     }
 
     private async getBalances(email: string): Promise<string> {
-        console.log('\n=== Fetching Wallet Balances ===');
         const response = await this.client.getClient(email).get<WalletBalanceResponse>('/api/wallets/balances');
-        console.log('Balances Response:', JSON.stringify(response.data, null, 2));
-
-        const walletBalances = response.data.data;
-        if (walletBalances.length === 0) {
-            return 'No wallet balances found.';
-        }
-
-        const balanceList = walletBalances.map(wallet => {
-            const tokenBalances = wallet.balances.map(balance =>
-                `Token: ${balance.symbol}
-Balance: ${this.formatBalance(balance.balance, balance.decimals)}
-Contract: ${balance.address}`
-            ).join('\n\n');
-
-            return `${wallet.network} Wallet${wallet.isDefault ? ' (Default)' : ''}
-${tokenBalances}`;
-        }).join('\n\n');
-
-        return `Your Wallet Balances:\n\n${balanceList}`;
+        return JSON.stringify(response.data);
     }
 
     private formatBalance(balance: string, decimals: number): string {
@@ -253,12 +267,8 @@ ${tokenBalances}`;
     }
 
     private async setDefaultWallet(email: string, walletId: string): Promise<string> {
-        console.log('\n=== Setting Default Wallet ===');
-        console.log('Wallet ID:', walletId);
         
         const response = await this.client.getClient(email).post<Wallet>('/api/wallets/default', { walletId });
-        console.log('Default Wallet Response:', JSON.stringify(response.data, null, 2));
-
         const wallet = response.data;
         return `Successfully set as default wallet:
 Type: ${wallet.walletType.toUpperCase()}
@@ -268,11 +278,8 @@ Updated: ${new Date(wallet.updatedAt).toLocaleString()}`;
     }
 
     private async getDepositInfo(email: string, walletId: string): Promise<string> {
-        console.log('\n=== Getting Deposit Information ===');
-        console.log('Wallet ID:', walletId);
         
         const response = await this.client.getClient(email).get<DepositInfo>(`/api/wallets/${walletId}/deposit`);
-        console.log('Deposit Info Response:', JSON.stringify(response.data, null, 2));
 
         const depositInfo = response.data;
         return `Deposit Information for Wallet ${walletId}:
@@ -285,46 +292,7 @@ Note: ${depositInfo.note || 'No special instructions'}`;
     }
 
     private async getTransactionHistory(email: string): Promise<string> {
-        console.log('\n=== Fetching Transaction History ===');
-        
         const response = await this.client.getClient(email).get<TransferResponse>('/api/transfers');
-        console.log('Transaction History Response:', JSON.stringify(response.data, null, 2));
-
-        const transfers = response.data.data;
-        if (transfers.length === 0) {
-            return 'No transactions found.';
-        }
-
-        const formatDate = (date: string) => new Date(date).toLocaleString();
-        const formatAmount = (amount: string) => parseFloat(amount).toFixed(2);
-        const maskAccount = (account: Account) => {
-            if (account.type === 'web3_wallet') {
-                return `${account.walletAddress} (${account.network})`;
-            }
-            return account.bankAccountNumber ? 
-                `${account.bankName || ''} ****${account.bankAccountNumber.slice(-4)}` : 
-                account.payeeDisplayName || 'Unknown Account';
-        };
-
-        const transactionList = transfers.map(transfer => {
-            const mainTransaction = transfer.transactions[0]; // Get the first transaction for main details
-            return `[${formatDate(transfer.createdAt)}] ${transfer.type.toUpperCase()} - ${transfer.status.toUpperCase()}
-Amount: ${formatAmount(transfer.amount)} ${transfer.currency}
-Subtotal: ${formatAmount(transfer.amountSubtotal)} ${transfer.currency}
-Fee: ${formatAmount(transfer.totalFee)} ${transfer.feeCurrency} (${transfer.feePercentage}%)
-From: ${maskAccount(transfer.sourceAccount)}
-To: ${maskAccount(transfer.destinationAccount)}
-Mode: ${transfer.mode}
-Purpose: ${transfer.purposeCode}
-${transfer.note ? `Note: ${transfer.note}` : ''}
-${mainTransaction?.transactionHash ? `Hash: ${mainTransaction.transactionHash}` : ''}
-Status: ${transfer.status.toUpperCase()}${mainTransaction?.externalStatus ? ` (${mainTransaction.externalStatus})` : ''}
-ID: ${transfer.id}`;
-        }).join('\n\n');
-
-        return `Transaction History:\n\n${transactionList}\n\nPage ${response.data.page} of ${Math.ceil(response.data.count / response.data.limit)}
-${response.data.hasMore ? 'More transactions available.' : 'End of transaction history.'}
-
-Note: For security, bank account numbers are partially masked.`;
+        return JSON.stringify(response.data);
     }
 } 

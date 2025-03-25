@@ -1,11 +1,22 @@
 import { AuthenticatedClient } from '../services/authenticatedClient';
 import { SessionManager } from '../services/sessionManager';
 
+interface TokenBalance {
+    decimals: number;
+    balance: string;
+    symbol: string;
+    address: string;
+}
+
+interface WalletBalance {
+    walletId: string;
+    isDefault: boolean;
+    network: string;
+    balances: TokenBalance[];
+}
+
 interface BalanceResponse {
-    total: number;
-    available: number;
-    currency: string;
-    lastUpdated: string;
+    data: WalletBalance[];
 }
 
 interface AccountDetail {
@@ -70,51 +81,25 @@ export class BalanceTool {
     private sessionManager: ReturnType<typeof SessionManager.getInstance>;
 
     constructor() {
-        console.log('\n=== Initializing Balance Tool ===');
         this.client = AuthenticatedClient.getInstance();
         this.sessionManager = SessionManager.getInstance();
-        console.log('Balance Tool initialized successfully');
     }
 
     async execute(email: string, type: string = 'balance'): Promise<string> {
         try {
-            console.log('\n=== Balance Tool Execution ===');
-            console.log('Parameters:', { email, type });
-            
-            console.log('\n=== Checking Session ===');
             const session = this.sessionManager.getSession(email);
             if (!session) {
-                console.log('No session found for email:', email);
                 throw new Error('No active session found. Please log in first.');
             }
-            console.log('Session found:', {
-                email: session.user.email,
-                firstName: session.user.firstName,
-                lastName: session.user.lastName
-            });
 
             if (type === 'transactionHistory') {
-                console.log('\n=== Fetching Transaction History ===');
-                return await this.getTransactionHistory(email);
+                const response = await this.client.getClient(email).get<TransactionPaginatedResponse>('/api/transactions');
+                return JSON.stringify(response.data);
             }
 
-            console.log('\n=== Fetching Balance ===');
-            const response = await this.client.getClient(email).get<BalanceResponse>('/api/wallet/balance');
-            console.log('Balance Response:', JSON.stringify(response.data, null, 2));
-
-            const balance = response.data;
-            return `Your current balance:
-Total: $${balance.total.toFixed(2)}
-Available: $${balance.available.toFixed(2)}
-Currency: ${balance.currency}
-Last Updated: ${new Date(balance.lastUpdated).toLocaleString()}`;
+            const response = await this.client.getClient(email).get<BalanceResponse>('/api/wallets/balances');
+            return JSON.stringify(response.data);
         } catch (error: any) {
-            console.error('\n=== Balance Tool Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
-            console.error('Stack Trace:', error.stack);
-            
             const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch balance';
             const errorDetails = error.response?.data?.details || '';
             const errorCode = error.response?.status || 'Unknown';
@@ -125,25 +110,12 @@ Last Updated: ${new Date(balance.lastUpdated).toLocaleString()}`;
 
     async getTransactionHistory(email: string): Promise<string> {
         try {
-            console.log('\n=== Transaction History Tool Execution ===');
-            console.log('Parameters:', { email });
-            
-            console.log('\n=== Checking Session ===');
             const session = this.sessionManager.getSession(email);
             if (!session) {
-                console.log('No session found for email:', email);
                 throw new Error('No active session found. Please log in first.');
             }
-            console.log('Session found:', {
-                email: session.user.email,
-                firstName: session.user.firstName,
-                lastName: session.user.lastName
-            });
 
-            console.log('\n=== Fetching Transaction History ===');
             const response = await this.client.getClient(email).get<TransactionPaginatedResponse>('/api/transactions');
-            console.log('Transaction History Response:', JSON.stringify(response.data, null, 2));
-
             const transactions = response.data.data;
             if (transactions.length === 0) {
                 return 'No transactions found in your history.';
@@ -179,11 +151,6 @@ ${response.data.hasMore ? 'More transactions available.' : 'End of transaction h
 
 Note: For bank accounts, only the last 4 digits are shown for security.`;
         } catch (error: any) {
-            console.error('\n=== Transaction History Tool Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
-            console.error('Stack Trace:', error.stack);
             
             const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch transaction history';
             const errorDetails = error.response?.data?.details || '';

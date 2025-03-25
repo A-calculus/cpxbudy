@@ -1,27 +1,28 @@
 import TelegramBot from 'node-telegram-bot-api';
-import dotenv from 'dotenv';
 import { MistralService } from './services/mistralService';
+import { ToolManager } from './tools/toolManager';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
-if (!token) {
-    throw new Error('TELEGRAM_BOT_TOKEN is not defined in environment variables');
-}
+// Initialize bot with your token
+const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN!, { polling: true });
 
-const bot = new TelegramBot(token, { polling: true });
+// Initialize ToolManager with bot instance
+const toolManager = ToolManager.getInstance(bot);
+
+// Initialize MistralService
 const mistralService = new MistralService();
 
 // Define menu commands
 const menuCommands = [
     { command: '/start', description: 'Start the bot' },
     { command: '/balance', description: 'Check your balance' },
-    { command: '/send', description: 'Send funds' },
-    { command: '/withdraw', description: 'Withdraw funds' },
     { command: '/login', description: 'Login to your account' },
     { command: '/logout', description: 'Logout from your account' },
     { command: '/profile', description: 'View your account profile' },
-    { command: '/kyc', description: 'Check your KYC/KYB status' }
+    { command: '/kyc', description: 'Check your KYC/KYB status' },
+    { command: '/notify', description: 'Set up notifications' }
 ];
 
 // Set up bot commands
@@ -63,8 +64,12 @@ const getDefaultMessage = (command: string): string => {
             return "Processing withdrawal request...";
         case 'profile':
             return "Fetching profile information...";
+        case 'notify':
+            return "Setting up notifications...";
         case 'kyc':
             return "Checking KYC status...";
+        case 'wallet':
+            return "Processing wallet command...";
         default:
             return "Processing your request...";
     }
@@ -73,35 +78,38 @@ const getDefaultMessage = (command: string): string => {
 // Handle /start command
 bot.onText(/\/start/, async (msg) => {
     const chatId = msg.chat.id;
+    const message = 'Welcome to CPXBuddy! I can help you with:\n\n' +
+        'CpXBuddy: "Your CopperX AI Trading Buddy".\n' +
+        'CpXBuddy is your trusted Telegram companion for all things related to your CopperX trading platform using natural language.\n\n' +
+        'With CpXBuddy, you can:\n' +
+        '- Check your balance\n' +
+        '- Login to your account\n' +
+        '- Logout from your account\n' +
+        '- View your account profile\n' +
+        '- check your KYC/KYB status\n' +
+        '- Manage wallets and view wallet information (eg type the /wallet command followed by your message of what you want to do: Actions include get list of wallets, set & get default wallet, get transfer history)\n' +
+        '- And much more!';
+    
+    await bot.sendMessage(chatId, message);
+});
+
+// Handle /login command
+bot.onText(/\/login/, async (msg) => {
+    const chatId = msg.chat.id;
+    await bot.sendMessage(chatId, 'Please enter your email address:');
+});
+
+// Handle /notify command
+bot.onText(/\/notify/, async (msg) => {
+    const chatId = msg.chat.id;
     try {
         const userId = validateUserId(msg);
-        const welcomeMessage = `
-Welcome to CpXBuddy! 👋
-
-CpXBuddy: 'Your CopperX AI Bot, your trusted Telegram buddy for all things related to your CopperX account using natural language.'
-
-With CpXBuddy, you can:
-- Check your balance
-- Send funds
-- Withdraw funds
-- Login to your account
-- Logout from your account
-- View your account profile
-- check your KYC/KYB status
-- And much more!
-
-Here are the available commands:
-/balance - Check your balance
-/send - Send funds
-/withdraw - Withdraw funds
-/login - Login to your account
-/logout - Logout from your account
-/profile - View your account profile
-/kyc - Check your KYC/KYB status
-
-How can I help you today?
-    `;
-        await bot.sendMessage(chatId, welcomeMessage);
+        // Send default message immediately
+        await bot.sendMessage(chatId, getDefaultMessage('notify'));
+        
+        // Process the command in the background
+        const aiResponse = await mistralService.generateResponse("/notify", userId, chatId);
+        await bot.sendMessage(chatId, aiResponse);
     } catch (error) {
         await handleError(chatId, error);
     }
@@ -116,7 +124,7 @@ bot.onText(/\/balance/, async (msg) => {
         await bot.sendMessage(chatId, getDefaultMessage('balance'));
         
         // Process the command in the background
-        const aiResponse = await mistralService.generateResponse("/balance", userId);
+        const aiResponse = await mistralService.generateResponse("/balance", userId, chatId);
         await bot.sendMessage(chatId, aiResponse);
     } catch (error) {
         await handleError(chatId, error);
@@ -132,7 +140,7 @@ bot.onText(/\/send/, async (msg) => {
         await bot.sendMessage(chatId, getDefaultMessage('send'));
         
         // Process the command in the background
-        const aiResponse = await mistralService.generateResponse("/send", userId);
+        const aiResponse = await mistralService.generateResponse("/send", userId, chatId);
         await bot.sendMessage(chatId, aiResponse);
     } catch (error) {
         await handleError(chatId, error);
@@ -148,23 +156,7 @@ bot.onText(/\/withdraw/, async (msg) => {
         await bot.sendMessage(chatId, getDefaultMessage('withdraw'));
         
         // Process the command in the background
-        const aiResponse = await mistralService.generateResponse("/withdraw", userId);
-        await bot.sendMessage(chatId, aiResponse);
-    } catch (error) {
-        await handleError(chatId, error);
-    }
-});
-
-// Handle /login command
-bot.onText(/\/login/, async (msg) => {
-    const chatId = msg.chat.id;
-    try {
-        const userId = validateUserId(msg);
-        // Send default message immediately
-        await bot.sendMessage(chatId, getDefaultMessage('login'));
-        
-        // Process the command in the background
-        const aiResponse = await mistralService.generateResponse("/login", userId);
+        const aiResponse = await mistralService.generateResponse("/withdraw", userId, chatId);
         await bot.sendMessage(chatId, aiResponse);
     } catch (error) {
         await handleError(chatId, error);
@@ -180,7 +172,7 @@ bot.onText(/\/logout/, async (msg) => {
         await bot.sendMessage(chatId, getDefaultMessage('logout'));
         
         // Process the command in the background
-        const aiResponse = await mistralService.generateResponse("/logout", userId);
+        const aiResponse = await mistralService.generateResponse("/logout", userId, chatId);
         await bot.sendMessage(chatId, aiResponse);
     } catch (error) {
         await handleError(chatId, error);
@@ -196,7 +188,7 @@ bot.onText(/\/profile/, async (msg) => {
         await bot.sendMessage(chatId, getDefaultMessage('profile'));
         
         // Process the command in the background
-        const aiResponse = await mistralService.generateResponse("/profile", userId);
+        const aiResponse = await mistralService.generateResponse("/profile", userId, chatId);
         await bot.sendMessage(chatId, aiResponse);
     } catch (error) {
         await handleError(chatId, error);
@@ -212,27 +204,47 @@ bot.onText(/\/kyc/, async (msg) => {
         await bot.sendMessage(chatId, getDefaultMessage('kyc'));
         
         // Process the command in the background
-        const aiResponse = await mistralService.generateResponse("/kyc", userId);
+        const aiResponse = await mistralService.generateResponse("/kyc", userId, chatId);
         await bot.sendMessage(chatId, aiResponse);
     } catch (error) {
         await handleError(chatId, error);
     }
 });
 
-// Handle regular messages
+// Handle /wallet command
+bot.onText(/\/wallet (.+)/, async (msg, match) => {
+    const chatId = msg.chat.id;
+    try {
+        const userId = validateUserId(msg);
+        const userMessage = match?.[1] || '';
+        
+        // Send default message immediately
+        await bot.sendMessage(chatId, getDefaultMessage('wallet'));
+        
+        // Process the command with the user's message
+        const aiResponse = await mistralService.generateResponse(`/wallet ${userMessage}`, userId, chatId);
+        await bot.sendMessage(chatId, aiResponse);
+    } catch (error) {
+        await handleError(chatId, error);
+    }
+});
+
+// Handle messages
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const text = msg.text;
 
-    // Ignore if no text or if it's a command
-    if (!text || text.startsWith('/')) return;
+    if (!text) return;
+
+    // Skip command messages
+    if (text.startsWith('/')) return;
 
     try {
-        const userId = validateUserId(msg);
-        const aiResponse = await mistralService.generateResponse(text, userId);
-        await bot.sendMessage(chatId, aiResponse);
+        const response = await mistralService.generateResponse(text, chatId.toString(), chatId);
+        await bot.sendMessage(chatId, response);
     } catch (error) {
-        await handleError(chatId, error);
+        console.error('Error processing message:', error);
+        await bot.sendMessage(chatId, 'Sorry, I encountered an error processing your request. Please try again.');
     }
 });
 

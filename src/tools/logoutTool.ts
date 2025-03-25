@@ -12,8 +12,6 @@ export class LogoutTool {
 
     async execute(email: string): Promise<string> {
         try {
-            console.log('\n=== Logout Tool Execution ===');
-            console.log('Email:', email);
             
             const session = this.sessionManager.getSession(email);
             if (!session) {
@@ -26,16 +24,9 @@ export class LogoutTool {
             // Clear the session after successful API call
             this.sessionManager.clearSession(email);
 
-            console.log('\n=== Logout Successful ===');
-            console.log('Email:', email);
-            console.log('Session cleared');
 
             return 'Logged out successfully.';
         } catch (error: any) {
-            console.error('\n=== Logout Tool Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
             
             // If the error is due to an already expired/invalid session, still clear the local session
             if (error.response?.status === 401) {

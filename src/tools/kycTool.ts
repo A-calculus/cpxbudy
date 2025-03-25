@@ -40,6 +40,7 @@ interface KYCDetail {
     currentKycVerification: KYCVerification;
     kycDocuments: KYCDocument[];
     uboType: string;
+    kycUrl: string;
 }
 
 interface KYCResponse {
@@ -120,56 +121,32 @@ export class KYCTool {
     private sessionManager: ReturnType<typeof SessionManager.getInstance>;
 
     constructor() {
-        console.log('\n=== Initializing KYC Tool ===');
         this.client = AuthenticatedClient.getInstance();
         this.sessionManager = SessionManager.getInstance();
-        console.log('KYC Tool initialized successfully');
     }
 
     async execute(email: string, nationality?: string, country?: string): Promise<string> {
         try {
-            console.log('\n=== KYC Tool Execution Started ===');
-            console.log('Parameters:', { email, nationality, country });
-            
-            console.log('\n=== Checking Session ===');
             const session = this.sessionManager.getSession(email);
             if (!session) {
-                console.log('No session found for email:', email);
                 throw new Error('No active session found. Please log in first.');
             }
-            console.log('Session found:', {
-                email: session.user.email,
-                firstName: session.user.firstName,
-                lastName: session.user.lastName
-            });
 
             // First, check if user has existing KYC
-            console.log('\n=== Checking KYC Status ===');
-            console.log('Requesting KYC status for email:', email);
             const kycStatusResponse = await this.client.getClient(email).get<KYCStatusResponse>(`/api/kycs/status/${session.user.email}`);
-            console.log('KYC Status Response:', JSON.stringify(kycStatusResponse.data, null, 2));
             
             if (kycStatusResponse.data.status === 'approved') {
-                console.log('User has approved KYC');
                 return this.formatApprovedKYC(kycStatusResponse.data);
             }
 
             // If not approved, check for existing KYC application
-            console.log('\n=== Checking Existing KYC Applications ===');
-            console.log('Requesting KYC applications');
             const kycsResponse = await this.client.getClient(email).get<KYCPaginatedResponse>('/api/kycs');
-            console.log('KYC Applications Response:', JSON.stringify(kycsResponse.data, null, 2));
 
             const existingKYC = (kycsResponse.data as KYCPaginatedResponse).data.find((kyc: KYCResponse) => 
                 kyc.kycDetail?.email === session.user.email
             );
 
             if (existingKYC) {
-                console.log('Found existing KYC application:', {
-                    id: existingKYC.id,
-                    status: existingKYC.status,
-                    type: existingKYC.type
-                });
 
                 const kycDetail = existingKYC.kycDetail;
                 const currentVerification = kycDetail?.currentKycVerification;
@@ -178,7 +155,6 @@ export class KYCTool {
                 const formatDate = (date: string) => new Date(date).toLocaleString();
                 
                 if (existingKYC.status === 'pending') {
-                    console.log('Processing pending KYC application');
                     return `Your KYC application is pending review.
 Application ID: ${existingKYC.id}
 Submitted On: ${formatDate(existingKYC.createdAt)}
@@ -198,7 +174,6 @@ Please wait for our team to review your application. This typically takes 1-2 bu
                 }
 
                 if (existingKYC.status === 'submitted') {
-                    console.log('Processing submitted KYC application');
                     return `Your KYC application has been submitted.
 Application ID: ${existingKYC.id}
 Submitted On: ${formatDate(existingKYC.createdAt)}
@@ -218,10 +193,6 @@ Please wait for our team to review your application. This typically takes 1-2 bu
                 }
 
                 if (existingKYC.status === 'initiated') {
-                    console.log('Processing initiated KYC application');
-                    console.log('Requesting KYC URL for signature:', existingKYC.signature);
-                    const kycUrlResponse = await this.client.getClient(email).get<KYCUrlResponse>(`/api/kycs/public/${existingKYC.signature}/kyc-url`);
-                    console.log('KYC URL Response:', { url: kycUrlResponse.data.url });
                     
                     return `Your KYC application is in progress.
 Application ID: ${existingKYC.id}
@@ -231,13 +202,12 @@ Country: ${existingKYC.country}
 Provider: ${existingKYC.kycProviderCode}
 
 Please complete your KYC verification by clicking the link below:
-${kycUrlResponse.data.url}
+${existingKYC.kycDetail.kycUrl}
 
 Note: This link will expire in 24 hours.`;
                 }
 
                 if (existingKYC.status === 'rejected') {
-                    console.log('Processing rejected KYC application');
                     return `Your KYC application was rejected.
 Application ID: ${existingKYC.id}
 Submitted On: ${formatDate(existingKYC.createdAt)}
@@ -253,19 +223,16 @@ ${currentVerification?.verifiedAt ? `Verified At: ${formatDate(currentVerificati
 Please contact support for more information about why your application was rejected.`;
                 }
             } else {
-                console.log('No existing KYC application found');
             }
 
             // Check if nationality and country are provided
             if (!nationality || !country) {
-                console.log('Missing required parameters:', { nationality, country });
                 return `Please provide your nationality and country of residence to proceed with KYC verification.
 Format: /kyc <nationality> <country>
 Example: /kyc US US`;
             }
 
             // Create new KYC application
-            console.log('\n=== Creating New KYC Application ===');
             const kycDetail: KYCCreateDetail = {
                 firstName: session.user.firstName,
                 lastName: session.user.lastName,
@@ -273,42 +240,24 @@ Example: /kyc US US`;
                 nationality: nationality.toUpperCase(),
                 uboType: 'owner'
             };
-            console.log('KYC Detail:', JSON.stringify(kycDetail, null, 2));
-
-            console.log('Creating KYC application with details:', {
-                type: 'individual',
-                country: country.toUpperCase(),
-                kycDetail
-            });
 
             const createKYCResponse = await this.client.getClient(email).post<KYCResponse>('/api/kycs', {
                 type: 'individual',
                 country: country.toUpperCase(),
                 kycDetail
             });
-            console.log('Create KYC Response:', JSON.stringify(createKYCResponse.data, null, 2));
 
             const newKYC = createKYCResponse.data;
             
-            // Get KYC URL for completion
-            console.log('\n=== Getting KYC URL ===');
-            console.log('Requesting KYC URL for signature:', newKYC.signature);
-            const kycUrlResponse = await this.client.getClient(email).get<KYCUrlResponse>(`/api/kycs/public/${newKYC.signature}/kyc-url`);
-            console.log('KYC URL Response:', { url: kycUrlResponse.data.url });
-            
+            // Use the KYC URL directly from the response
             return `New KYC application created successfully!
 Application ID: ${newKYC.id}
 
 Please complete your KYC verification by clicking the link below:
-${kycUrlResponse.data.url}
+${newKYC.kycDetail.kycUrl}
 
 Note: This link will expire in 24 hours.`;
         } catch (error: any) {
-            console.error('\n=== KYC Tool Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
-            console.error('Stack Trace:', error.stack);
             
             const errorMessage = error.response?.data?.message || error.message || 'Failed to process KYC';
             const errorDetails = error.response?.data?.details || '';
@@ -320,36 +269,21 @@ Note: This link will expire in 24 hours.`;
 
     async uploadKYBDocument(email: string, kycId: string, file: Buffer, fileName: string): Promise<string> {
         try {
-            console.log('\n=== Uploading KYB Document ===');
-            console.log('Parameters:', {
-                email,
-                kycId,
-                fileName,
-                fileSize: file.length
-            });
 
             const formData = new FormData();
             formData.append('file', file, {
                 filename: fileName,
                 contentType: 'application/octet-stream'
             });
-            console.log('FormData created with file:', fileName);
 
-            console.log('Uploading document to API');
             const response = await this.client.getClient(email).post(`/api/kycs/kyb-detail/${kycId}/document`, formData, {
                 headers: {
                     ...formData.getHeaders()
                 }
             });
-            console.log('Upload Response:', JSON.stringify(response.data, null, 2));
 
             return `Document uploaded successfully for KYC ID: ${kycId}`;
         } catch (error: any) {
-            console.error('\n=== KYB Document Upload Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
-            console.error('Stack Trace:', error.stack);
             
             throw new Error(`Failed to upload document: ${error.message}`);
         }
@@ -357,24 +291,11 @@ Note: This link will expire in 24 hours.`;
 
     async submitKYBAdditionalInfo(email: string, kycId: string, info: KYBAdditionalInfo): Promise<string> {
         try {
-            console.log('\n=== Submitting KYB Additional Info ===');
-            console.log('Parameters:', {
-                email,
-                kycId,
-                info: JSON.stringify(info, null, 2)
-            });
 
-            console.log('Submitting additional info to API');
             const response = await this.client.getClient(email).post(`/api/kycs/kyb-detail/${kycId}/additional-info`, info);
-            console.log('Submit Response:', JSON.stringify(response.data, null, 2));
 
             return `Additional KYB information submitted successfully for KYC ID: ${kycId}`;
         } catch (error: any) {
-            console.error('\n=== KYB Additional Info Submission Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
-            console.error('Stack Trace:', error.stack);
             
             throw new Error(`Failed to submit additional KYB info: ${error.message}`);
         }
@@ -382,20 +303,10 @@ Note: This link will expire in 24 hours.`;
 
     async submitKYBForReview(email: string, kycId: string): Promise<string> {
         try {
-            console.log('\n=== Submitting KYB for Review ===');
-            console.log('Parameters:', { email, kycId });
-
-            console.log('Submitting KYB for review to API');
             const response = await this.client.getClient(email).post(`/api/kycs/kyb-detail/${kycId}/submit`);
-            console.log('Submit Response:', JSON.stringify(response.data, null, 2));
 
             return `KYB submitted for review successfully for KYC ID: ${kycId}`;
         } catch (error: any) {
-            console.error('\n=== KYB Review Submission Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
-            console.error('Stack Trace:', error.stack);
             
             throw new Error(`Failed to submit KYB for review: ${error.message}`);
         }
@@ -403,28 +314,17 @@ Note: This link will expire in 24 hours.`;
 
     async reopenKYB(email: string, kycId: string): Promise<string> {
         try {
-            console.log('\n=== Reopening KYB ===');
-            console.log('Parameters:', { email, kycId });
 
-            console.log('Reopening KYB via API');
             const response = await this.client.getClient(email).post(`/api/kycs/${kycId}/reopen-kyb`);
-            console.log('Reopen Response:', JSON.stringify(response.data, null, 2));
 
             return `KYB reopened successfully for KYC ID: ${kycId}`;
         } catch (error: any) {
-            console.error('\n=== KYB Reopen Error ===');
-            console.error('Error:', error);
-            console.error('Error Response:', error.response?.data);
-            console.error('Error Status:', error.response?.status);
-            console.error('Stack Trace:', error.stack);
             
             throw new Error(`Failed to reopen KYB: ${error.message}`);
         }
     }
 
     private formatApprovedKYC(kycStatus: KYCStatusResponse): string {
-        console.log('\n=== Formatting Approved KYC Response ===');
-        console.log('KYC Status:', JSON.stringify(kycStatus, null, 2));
         
         const response = `KYC Status Information:
 Status: ${kycStatus.status.toUpperCase()}
@@ -435,7 +335,6 @@ Documents Verified: ${kycStatus.documents.join(', ')}
 
 Your account is fully verified and has no trading restrictions.`;
 
-        console.log('Formatted Response:', response);
         return response;
     }
 } 
